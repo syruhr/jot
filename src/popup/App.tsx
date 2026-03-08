@@ -27,7 +27,6 @@ export default function App() {
 
   if (!data) return null;
 
-  // Reset focus if it's a new day
   const today = todayStr();
   if (data.focus.date && data.focus.date !== today) {
     update({ focus: { text: '', date: '' } });
@@ -38,12 +37,15 @@ export default function App() {
   const handleFocusUpdate = (text: string) => update({ focus: { text, date: today } });
 
   return (
-    <div className="flex flex-col h-[520px] w-[380px] bg-gray-950 text-gray-100">
+    <div className="flex flex-col h-[520px] w-[380px] bg-[#0f0a1a] text-gray-100 overflow-hidden relative">
+      {/* Subtle gradient glow at top */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 bg-violet-500/8 rounded-full blur-3xl pointer-events-none" />
+      
       {/* Daily Focus */}
       <DailyFocus focus={data.focus} onUpdate={handleFocusUpdate} />
 
       {/* Content */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden relative z-10">
         {tab === 'capture' && (
           <QuickCapture
             notes={data.notes}
