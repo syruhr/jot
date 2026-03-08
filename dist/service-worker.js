@@ -1,0 +1,1 @@
+chrome.alarms.create("midnight-reset",{periodInMinutes:60});chrome.alarms.onAlarm.addListener(t=>{if(t.name==="midnight-reset"){const e=new Date;e.getHours()===0&&e.getMinutes()<60&&chrome.storage.local.get({focus:{text:"",date:""}},o=>{const a=new Date().toISOString().slice(0,10);o.focus.date!==a&&chrome.storage.local.set({focus:{text:"",date:""}})})}});
