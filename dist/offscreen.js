@@ -1,0 +1,38 @@
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.type === 'play-timer-done') {
+    playTimerDone();
+  }
+});
+
+function playTimerDone() {
+  try {
+    const ctx = new AudioContext();
+    const t = ctx.currentTime;
+
+    const pattern = [
+      { freq: 880, time: 0, dur: 0.3 },
+      { freq: 1100, time: 0.15, dur: 0.3 },
+      { freq: 880, time: 0.6, dur: 0.3 },
+      { freq: 1100, time: 0.75, dur: 0.3 },
+      { freq: 880, time: 1.2, dur: 0.4 },
+      { freq: 1320, time: 1.35, dur: 0.6 },
+    ];
+
+    pattern.forEach(({ freq, time, dur }) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t + time);
+      gain.gain.setValueAtTime(0, t + time);
+      gain.gain.linearRampToValueAtTime(0.25, t + time + 0.02);
+      gain.gain.setValueAtTime(0.25, t + time + dur * 0.5);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + time + dur);
+      osc.start(t + time);
+      osc.stop(t + time + dur);
+    });
+  } catch (e) {
+    console.error('Sound error:', e);
+  }
+}
