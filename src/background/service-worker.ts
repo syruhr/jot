@@ -1,16 +1,32 @@
 // Jot Service Worker — handles timer countdown in background
 
-// Tick every ~3 seconds (Chrome minimum for alarms is ~30s, so we use a workaround)
-// Actually chrome.alarms minimum period is 1 minute for released extensions
-// We'll use a combination: set alarm for timer end, and periodic check
 chrome.alarms.create('midnight-reset', { periodInMinutes: 60 });
 
-// When timer starts, we create a 'jot-timer-end' alarm at the exact end time
-// Plus a periodic tick to update remaining in storage
+// Play sound via offscreen document (works even with popup closed)
+async function playTimerSound() {
+  try {
+    // Check if offscreen doc already exists
+    const existingContexts = await (chrome as any).runtime.getContexts({
+      contextTypes: ['OFFSCREEN_DOCUMENT'],
+      documentUrls: [chrome.runtime.getURL('offscreen.html')],
+    });
+
+    if (!existingContexts || existingContexts.length === 0) {
+      await (chrome as any).offscreen.createDocument({
+        url: 'offscreen.html',
+        reasons: ['AUDIO_PLAYBACK'],
+        justification: 'Play timer completion sound',
+      });
+    }
+
+    chrome.runtime.sendMessage({ type: 'play-timer-done' });
+  } catch (e) {
+    console.log('Offscreen sound error:', e);
+  }
+}
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'jot-timer-end') {
-    // Timer is done!
     chrome.storage.local.get(['timer', 'settings'], (data) => {
       const timer = data.timer;
       const settings = data.settings || { workDuration: 25, breakDuration: 5, soundEnabled: true };
@@ -37,6 +53,11 @@ chrome.alarms.onAlarm.addListener((alarm) => {
       chrome.storage.local.set({ timer: next, timerEndTime: null });
       chrome.alarms.clear('jot-timer-tick');
 
+      // Play sound if enabled
+      if (settings.soundEnabled) {
+        playTimerSound();
+      }
+
       chrome.notifications.create('jot-timer-done', {
         type: 'basic',
         iconUrl: 'icons/icon128.png',
@@ -47,7 +68,6 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 
   if (alarm.name === 'jot-timer-tick') {
-    // Update remaining in storage so popup can display it
     chrome.storage.local.get(['timer', 'timerEndTime'], (data) => {
       const timer = data.timer;
       const endTime = data.timerEndTime;
@@ -71,14 +91,9 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
-// Listen for messages from popup to start/stop timer alarms
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === 'timer-start') {
-    const endTime = msg.endTime;
-    const delayMs = endTime - Date.now();
-    // Set exact alarm for when timer ends
-    chrome.alarms.create('jot-timer-end', { when: endTime });
-    // Periodic tick to update remaining (every 1 min — Chrome minimum)
+    chrome.alarms.create('jot-timer-end', { when: msg.endTime });
     chrome.alarms.create('jot-timer-tick', { periodInMinutes: 1 });
     sendResponse({ ok: true });
   }
